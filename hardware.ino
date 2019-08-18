@@ -17,7 +17,7 @@
 #include "hardware.h"
 
 #include <Wire.h>
-#define keypadaddress 0x20
+
 
 uint8_t border=0;
 uint8_t kempston_port=0xFF;
@@ -25,11 +25,13 @@ uint8_t ulaport_FF=0xFF;
 
 // Con estas variables se controla el mapeado de los botones  hardware reales a los virtuales del spectrum
 uint8_t mappingkey[4][12]={  
-{VEGAKEY_MENU, SPECKEY_SPACE, SPECKEY_J,     SPECKEY_ENTER, SPECKEY_Q, SPECKEY_A, SPECKEY_O, SPECKEY_P,  SPECKEY_NONE,SPECKEY_NONE,SPECKEY_NONE,SPECKEY_NONE},
-{VEGAKEY_MENU, JOYK_FIRE,     SPECKEY_J,     SPECKEY_SPACE, JOYK_UP,   JOYK_DOWN, JOYK_LEFT, JOYK_RIGHT, SPECKEY_NONE,SPECKEY_NONE,SPECKEY_NONE,SPECKEY_NONE},
-{VEGAKEY_MENU, SPECKEY_0,     SPECKEY_SPACE, SPECKEY_ENTER, SPECKEY_9, SPECKEY_8, SPECKEY_6, SPECKEY_7,  SPECKEY_NONE,SPECKEY_NONE,SPECKEY_NONE,SPECKEY_NONE},
-{VEGAKEY_MENU, SPECKEY_SPACE, SPECKEY_5,     SPECKEY_M,     SPECKEY_P, SPECKEY_L, SPECKEY_Z, SPECKEY_X,  SPECKEY_NONE,SPECKEY_NONE,SPECKEY_NONE,SPECKEY_NONE},
+{SPECKEY_Z, SPECKEY_M,SPECKEY_SPACE, SPECKEY_ENTER, SPECKEY_Q, SPECKEY_A, SPECKEY_O, SPECKEY_P,  VEGAKEY_MENU,SPECKEY_SHIFT,SPECKEY_J,SPECKEY_H},
+{SPECKEY_P, JOYK_FIRE,SPECKEY_SPACE, SPECKEY_ENTER, JOYK_UP,   JOYK_DOWN, JOYK_LEFT, JOYK_RIGHT, VEGAKEY_MENU,SPECKEY_SHIFT,SPECKEY_J,SPECKEY_H},
+{SPECKEY_P, SPECKEY_0,SPECKEY_SPACE, SPECKEY_ENTER, SPECKEY_9, SPECKEY_8, SPECKEY_6, SPECKEY_7,  VEGAKEY_MENU,SPECKEY_SHIFT,SPECKEY_J,SPECKEY_H},
+{SPECKEY_5, SPECKEY_M,SPECKEY_SPACE, SPECKEY_ENTER, SPECKEY_P, SPECKEY_L, SPECKEY_Z, SPECKEY_X,  VEGAKEY_MENU,SPECKEY_SHIFT,SPECKEY_J,SPECKEY_H},
 };
+
+
  
 uint8_t mappingindex=0;
 
@@ -72,12 +74,22 @@ void leebotones(void){
 }
 
 void updatekey(uint8_t key, uint8_t state){
+  char options[6][25]={
+    "Cambiar Mapa de teclado",
+    "Cargar Snapshot",
+    "Cargar Cinta",
+    "Reset",
+    "Tipo de Maquina",
+    "Volver"
+  };
   uint8_t n;
   switch (key) {
     case SPECKEY_NONE :
       break;
     case VEGAKEY_MENU :
       if (state==1) {
+        //gui_draw_menu(200,6,"Opciones",options);
+        gui_draw_window(200,100,"Opciones");
         mappingindex++ ;       
         if (mappingindex>3) mappingindex=0;
           AS_printf("now mapping is "); AS_print(mappingindex); AS_printf("\n");     
@@ -177,30 +189,42 @@ const  uint8_t k[5][12]= {
 // Function for writing two Bytes to the I2C expander device
 void pf575_write(uint16_t dato)
 {
-  Wire.beginTransmission(keypadaddress);
+  Wire.beginTransmission(KEYPADADRESS);
   Wire.write(lowByte(dato));
   Wire.write(highByte(dato));
   Wire.endTransmission();
 }
 
+uint16_t pf575_read(void){
+  uint8_t a,b;
+  Wire.beginTransmission(KEYPADADRESS); ////who are you talking to?
+  Wire.endTransmission(); //end communication
+  Wire.requestFrom(KEYPADADRESS, 2); //request two bytes of data
+  if (Wire.available()) {
+    a = Wire.read(); //read byte 1
+    b = Wire.read(); //read byte 2
+  }
+  return (uint16_t)b + (uint16_t)a<<8 ;
+}
+
 void keypad_i2c_read(void){
-  byte dataReceived[3]; //a two byte array to hold our data
+  uint8_t dataReceived[3]; //a two byte array to hold our data
   int c;
 
   pf575_write(0xFFFE);
   delay(1);
-  Wire.beginTransmission(keypadaddress); ////who are you talking to?
+  Wire.beginTransmission(KEYPADADRESS); ////who are you talking to?
   Wire.endTransmission(); //end communication
-  Wire.requestFrom(keypadaddress, 2); //request two bytes of data
+  Wire.requestFrom(KEYPADADRESS, 2); //request two bytes of data
   if (Wire.available()) {
     dataReceived[0] = Wire.read(); //read byte 1
     dataReceived[1] = Wire.read(); //read byte 2
   }
   pf575_write(0xFFFD);
   delay(1);
-  Wire.beginTransmission(keypadaddress); ////who are you talking to?
+  Wire.beginTransmission(KEYPADADRESS); ////who are you talking to?
   Wire.endTransmission(); //end communication
-  Wire.requestFrom(keypadaddress, 2); //request two bytes of data
+  Wire.requestFrom(KEYPADADRESS, 2); //request two bytes of data
   if (Wire.available()) {
     dataReceived[0] = Wire.read(); //read byte 1
     dataReceived[2] = Wire.read(); //read byte 2

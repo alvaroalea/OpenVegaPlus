@@ -4,6 +4,14 @@
   extern "C" {
 #endif
 
+#define KEYPADADRESS 0x20
+
+#define KEYCFG_1 "O,P,Q,A y Space"
+#define KEYCFG_2 "Joysktick Kempston"
+#define KEYCFG_3 "Joystick Sinclair"
+#define KEYCFG_4 "P,L,Z,X y M"
+
+
   enum SpecKeys
   { SPECKEY_NONE,
     SPECKEY_1, SPECKEY_2, SPECKEY_3, SPECKEY_4, SPECKEY_5,    SPECKEY_6, SPECKEY_7, SPECKEY_8, SPECKEY_9, SPECKEY_0,

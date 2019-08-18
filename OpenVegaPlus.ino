@@ -1,4 +1,4 @@
-t  /*=====================================================================
+/*=====================================================================
  * Open Vega+ Emulator. Handheld ESP32 based hardware with 
  * ZX Spectrum emulation
  * 
@@ -50,11 +50,12 @@ tipo_emuopt emuopt;
  
 void show_splash(void){
 
-  tft.setCursor(0, 60);
-  tft.setTextColor(ILI9341_WHITE);  
+  gui_draw_window(270,170, "Version 0.0 alpha");
+  tft.setCursor(0, 65);
+  tft.setTextColor(ILI9341_BLACK);  
   tft.setTextSize(3);
   tft.println("    OpenVEGA+");
-  tft.setTextColor(ILI9341_YELLOW);  
+  tft.setTextColor(ILI9341_DARKGREEN);  
   tft.setTextSize(2);
   tft.println("\n     By Alvaro Alea F.");
   tft.setTextSize(1);
@@ -62,8 +63,8 @@ void show_splash(void){
   tft.setTextSize(2);
   tft.println("          (C) 2019");
   tft.setTextSize(1);
-  tft.setTextColor(ILI9341_CYAN);  
-  tft.println("\n\n       A Opensource Portable Spectrum Emulator");
+  tft.setTextColor(ILI9341_BLUE);  
+  tft.println("\n\n\n       A Opensource Portable Spectrum Emulator");
 }
 
 void setup(void)
@@ -137,6 +138,10 @@ void ula_tick(void){
     0,0,205,205, 0,0,205,212,     0,0,255,255, 0,0,255,255,
     0,0,0,0,     205,205,205,212, 0,0,0,0,     255,255,255,255,
     0,205,0,205, 0,205,0,212,     0,255,0,255, 0,255,0,255 };
+
+  const int specpal565[16]={ //C618    D69A
+    0x0000, 0x001B, 0xB800, 0xB817,0x05E0,0x05F7,0xBDE0,0xC618, 0x0000, 0x001F,0xF800,0xF81F,0x07E0,0x07FF,0xFFE0,0xFFFF}; 
+
   int color;
   byte pixel;
   int col,fil,scan,inkOpap;
@@ -216,7 +221,8 @@ void ula_tick(void){
  }
  // Paint the real screen
  if ((px<320) and (py<240) and (cf3==0)) { 
-  tft.drawPixel(px,py,tft.color565(specpal[color] ,specpal[color+16] ,specpal[color+32]));
+//  tft.drawPixel(px,py,tft.color565(specpal[color] ,specpal[color+16] ,specpal[color+32]));
+  tft.drawPixel(px,py,specpal565[color]);
  }
  // Frame indication
  if ((px==0) and (py==16)) {
