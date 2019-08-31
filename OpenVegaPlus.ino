@@ -47,6 +47,9 @@ tipo_emuopt emuopt;
 /*FIXME: para una buena orientacion a objetos, mem y hwopts deberian pasarse como puntero a
  *cada funcion que lo necesite, igual que hacemos con spectrumZ80
  */
+#include "soc/timer_group_struct.h"
+#include "soc/timer_group_reg.h"
+TaskHandle_t Ula_Task;
  
 void show_splash(void){
 
@@ -100,6 +103,16 @@ void setup(void)
   tft.fillScreen(ILI9341_BLACK);
 
   show_splash();
+
+  xTaskCreatePinnedToCore(
+                    ula_do_ticks,/* Task function. */
+                    "ULA",       /* name of task. */
+                    16384,       /* Stack size of task */
+                    NULL,        /* parameter of the task */
+                    1,           /* priority of the task */
+                    &Ula_Task,   /* Task handle to keep track of created task */
+                    0);          /* pin task to core 0 */
+  
   //FIXME porque 69888??
   Z80Reset (&spectrumZ80, 69888);
   Z80FlagTables ();
@@ -114,45 +127,65 @@ void setup(void)
   AS_printf("Entrando en el loop\n");
 }
 
+long pend_ula_ticks=0;
 
 void loop (void){ 
   draw_scanline();
 }
 
 const uint8_t SoundTable[4]={0,1,0,1};
+
 void draw_scanline(){
   uint16_t c=0; 
-  long ticks;
 // dividimos el scanline en la parte central, y los bordes y retrazo, para la emulacion del puerto FF  
-  for(ticks=0;ticks<256;ticks++) ula_tick();
-  c=Z80Run (&spectrumZ80, 128) ;  
-  for(ticks=0;ticks<192;ticks++) ula_tick();  
+
+  pend_ula_ticks+=256;
+//  ula_do_ticks();
+  c=Z80Run (&spectrumZ80, 128) ;
+  while (pend_ula_ticks>0) { delay(1); }
+    
+  pend_ula_ticks+=192;
+//  ula_do_ticks();
   c=Z80Run (&spectrumZ80, 96) ;
+  while (pend_ula_ticks>0) { delay(1); }
+
 //  AS_printf("PC=%i\n",c);
   // Sound on each scanline means 15.6Khz, not bad...
   //dac_output_voltage(DAC_CHANNEL_1, SoundTable[hwopt.SoundBits]);
 }
 
+void ula_do_ticks(void * pvParameters ){
+  for(;;){ 
+    if (pend_ula_ticks>0) {
+      pend_ula_ticks--;
+      ula_tick();
+    }
+  TIMERG0.wdt_wprotect=TIMG_WDT_WKEY_VALUE;
+  TIMERG0.wdt_feed=1;
+  TIMERG0.wdt_wprotect=0;
+  }
+}
+
 void ula_tick(void){
-  const int specpal[48]={
+/*  const int specpal[48]={
     0,0,205,205, 0,0,205,212,     0,0,255,255, 0,0,255,255,
     0,0,0,0,     205,205,205,212, 0,0,0,0,     255,255,255,255,
     0,205,0,205, 0,205,0,212,     0,255,0,255, 0,255,0,255 };
-
+*/
   const int specpal565[16]={ //C618    D69A
     0x0000, 0x001B, 0xB800, 0xB817,0x05E0,0x05F7,0xBDE0,0xC618, 0x0000, 0x001F,0xF800,0xF81F,0x07E0,0x07FF,0xFFE0,0xFFFF}; 
 
   int color;
   byte pixel;
   int col,fil,scan,inkOpap;
-  static int px=31;
-  static int py=24;
-  static int ch=-1;
-  static int cv=-1;
-  static int cf=0;
+  static int px=31; // emulator hardware pixel to be paint, x coordinate
+  static int py=24; // emulator hardware pixel to be paint, y coordinate
+  static int ch=447; // 0-447 is the horizontal bean position
+  static int cv=312; // 0-312 is the vertical bean position
+  static int cf=0;  // 0-32 counter for flash
   static int cf2=0;
   static int cf3=0;
-  static uint8_t attr;
+  static uint8_t attr; //last attrib memory read
 
  ch++;
  if (ch>=448) ch=0;
@@ -220,8 +253,7 @@ void ula_tick(void){
   }
  }
  // Paint the real screen
- if ((px<320) and (py<240) and (cf3==0)) { 
-//  tft.drawPixel(px,py,tft.color565(specpal[color] ,specpal[color+16] ,specpal[color+32]));
+ if ((px<320) and (py<240) ){ //and (cf3==0)) { 
   tft.drawPixel(px,py,specpal565[color]);
  }
  // Frame indication

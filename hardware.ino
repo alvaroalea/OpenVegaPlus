@@ -18,7 +18,7 @@
 
 #include <Wire.h>
 
-
+//FIXME part of struct of speccy???
 uint8_t border=0;
 uint8_t kempston_port=0xFF;
 uint8_t ulaport_FF=0xFF;
@@ -31,9 +31,6 @@ uint8_t mappingkey[4][12]={
 {SPECKEY_5, SPECKEY_M,SPECKEY_SPACE, SPECKEY_ENTER, SPECKEY_P, SPECKEY_L, SPECKEY_Z, SPECKEY_X,  VEGAKEY_MENU,SPECKEY_SHIFT,SPECKEY_J,SPECKEY_H},
 };
 
-
- 
-uint8_t mappingindex=0;
 
 // Con estas variables se controla el mapeado de las teclas virtuales del spectrum a I/O port
 const int key2specy[2][41]={
@@ -62,10 +59,10 @@ void leebotones(void){
   for(c=0;c<12;c++){
   if (keys[c]!=oldkeys[c]) {
     AS_printf("B="); AS_print(c);
-    AS_printf("\tM="); AS_print(mappingkey[mappingindex][c]);
+    AS_printf("\tM="); AS_print(mappingkey[emuopt.mappingindex][c]);
     AS_printf("\n");
-    updatekey(mappingkey[mappingindex][c], keys[c]);
-    paint_tecla (mappingkey[mappingindex][c],keys[c]);
+    updatekey(mappingkey[emuopt.mappingindex][c], keys[c]);
+    paint_tecla (mappingkey[emuopt.mappingindex][c],keys[c]);
     paint_button(c,keys[c]);
   }
   oldkeys[c]=keys[c];  
@@ -73,27 +70,27 @@ void leebotones(void){
 
 }
 
+int mirabotones(void){
+  int c;
+  int r=-1;
+  static int tmp_oldkeys[16]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+  keypad_i2c_read();
+  for(c=0;c<12;c++){
+  if (keys[c]!=tmp_oldkeys[c]) {
+    if (keys[c]==0) r=c;
+  }
+  tmp_oldkeys[c]=keys[c];  
+  }
+  return r;
+}
+
 void updatekey(uint8_t key, uint8_t state){
-  char options[6][25]={
-    "Cambiar Mapa de teclado",
-    "Cargar Snapshot",
-    "Cargar Cinta",
-    "Reset",
-    "Tipo de Maquina",
-    "Volver"
-  };
   uint8_t n;
   switch (key) {
     case SPECKEY_NONE :
       break;
     case VEGAKEY_MENU :
-      if (state==1) {
-        //gui_draw_menu(200,6,"Opciones",options);
-        gui_draw_window(200,100,"Opciones");
-        mappingindex++ ;       
-        if (mappingindex>3) mappingindex=0;
-          AS_printf("now mapping is "); AS_print(mappingindex); AS_printf("\n");     
-      }
+      if (state==1) gui_Main_Menu();
       break;
     case JOYK_LEFT :
       if (state==1) kempston_port &=!0x01;
@@ -121,9 +118,9 @@ void updatekey(uint8_t key, uint8_t state){
 
       if (state==1) speckey[ key2specy[0][key] ] &=  key2specy[1][key] ;
       else          speckey[ key2specy[0][key] ] |= ((key2specy[1][key])^0xFF) ;
-      AS_printf("Fila %i, state %i, es:",key2specy[0][key],state); AS_print(speckey[ key2specy[0][key] ],BIN);
-      AS_printf(" sacado de:"); AS_print(n,BIN); 
-      AS_print("\n");
+//      AS_printf("Fila %i, state %i, es:",key2specy[0][key],state); AS_print(speckey[ key2specy[0][key] ],BIN);
+//      AS_printf(" sacado de:"); AS_print(n,BIN); 
+//      AS_print("\n");
       break;
   }
 }
@@ -197,10 +194,8 @@ void pf575_write(uint16_t dato)
 
 uint16_t pf575_read(void){
   uint8_t a,b;
-  Wire.beginTransmission(KEYPADADRESS); ////who are you talking to?
-  Wire.endTransmission(); //end communication
   Wire.requestFrom(KEYPADADRESS, 2); //request two bytes of data
-  if (Wire.available()) {
+  if (Wire.available()) { //really this do anything??
     a = Wire.read(); //read byte 1
     b = Wire.read(); //read byte 2
   }
@@ -210,20 +205,15 @@ uint16_t pf575_read(void){
 void keypad_i2c_read(void){
   uint8_t dataReceived[3]; //a two byte array to hold our data
   int c;
-
   pf575_write(0xFFFE);
-  delay(1);
-  Wire.beginTransmission(KEYPADADRESS); ////who are you talking to?
-  Wire.endTransmission(); //end communication
+//  dataReceived[1]=lowByte(pf575_read());
   Wire.requestFrom(KEYPADADRESS, 2); //request two bytes of data
   if (Wire.available()) {
     dataReceived[0] = Wire.read(); //read byte 1
     dataReceived[1] = Wire.read(); //read byte 2
   }
   pf575_write(0xFFFD);
-  delay(1);
-  Wire.beginTransmission(KEYPADADRESS); ////who are you talking to?
-  Wire.endTransmission(); //end communication
+//  dataReceived[2]=lowByte(pf575_read());
   Wire.requestFrom(KEYPADADRESS, 2); //request two bytes of data
   if (Wire.available()) {
     dataReceived[0] = Wire.read(); //read byte 1
@@ -231,18 +221,14 @@ void keypad_i2c_read(void){
   }
   pf575_write(0xFFFF);
 
-//  Serial.print ("botones:");
   for(c=0;c<8;c++){
     keys[c]=!(dataReceived[1] & 1);
     dataReceived[1]=dataReceived[1]>>1;
-//    Serial.print (keys[c]);
   }
   for(c=8;c<12;c++){
     keys[c]=!(dataReceived[2] & 1);
     dataReceived[2]=dataReceived[2]>>1;
-//    Serial.print (keys[c]);
   }
-//  Serial.println();
 }
 
 void keypad_i2c_init(void){

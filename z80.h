@@ -122,7 +122,6 @@ typedef union {
 typedef struct {
 //  char machine_type;
 //  byte * RAM;
-  int we_are_on_ddfd;
   /* general and shadow z80 registers */ 
   eword AF,  BC,  DE,  HL, IX, IY, PC, SP, R; 
   eword AFs, BCs, DEs, HLs;
@@ -130,6 +129,7 @@ typedef struct {
   byte IFF1, IFF2, I, halted;
   char IM;
   uint16_t IRequest;
+  int we_are_on_ddfd;
   /* the following is to take care of cycle counting */ 
   int IPeriod, ICount, IBackup;
   int petint; 
