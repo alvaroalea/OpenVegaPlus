@@ -9,6 +9,7 @@
  * 
  * Based on the Aspectrum emulator Copyright (c) 2000 Santiago Romero Iglesias
  * Use Adafruit's IL9341 and GFX libraries.
+ * Compile as ESP32 Wrover Module
  *======================================================================
  */
 #include "SPIFFS.h"
@@ -29,6 +30,8 @@
 Adafruit_ILI9341 tft = Adafruit_ILI9341(_cs, _dc, _rst);
 //Adafruit_ILI9341 tft = Adafruit_ILI9341(_cs, _dc, _mosi, _sclk, _rst, _miso);
 
+//#define USE_DUAL_CORE
+
 #include "hardware.h"
 #include "snaps.h"
 #include "spectrum.h"
@@ -44,13 +47,17 @@ Z80Regs spectrumZ80;
 tipo_mem mem;
 tipo_hwopt hwopt;
 tipo_emuopt emuopt;
+uint8_t *lastpix;
 /*FIXME: para una buena orientacion a objetos, mem y hwopts deberian pasarse como puntero a
  *cada funcion que lo necesite, igual que hacemos con spectrumZ80
  */
+ 
+#ifdef USE_DUAL_CORE
 #include "soc/timer_group_struct.h"
 #include "soc/timer_group_reg.h"
 TaskHandle_t Ula_Task;
- 
+#endif 
+
 void show_splash(void){
 
   gui_draw_window(270,170, "Version 0.0 alpha");
@@ -104,6 +111,16 @@ void setup(void)
 
   show_splash();
 
+  lastpix = (uint8_t*) malloc(320*240 * sizeof(uint8_t));
+  if(lastpix == NULL)                     
+    {
+        AS_printf("Error! memory not allocated for screenbuffer.\n");
+        delay(10000);
+    }
+
+
+
+#ifdef USE_DUAL_CORE
   xTaskCreatePinnedToCore(
                     ula_do_ticks,/* Task function. */
                     "ULA",       /* name of task. */
@@ -112,6 +129,7 @@ void setup(void)
                     1,           /* priority of the task */
                     &Ula_Task,   /* Task handle to keep track of created task */
                     0);          /* pin task to core 0 */
+#endif
   
   //FIXME porque 69888??
   Z80Reset (&spectrumZ80, 69888);
@@ -140,20 +158,33 @@ void draw_scanline(){
 // dividimos el scanline en la parte central, y los bordes y retrazo, para la emulacion del puerto FF  
 
   pend_ula_ticks+=256;
-//  ula_do_ticks();
   c=Z80Run (&spectrumZ80, 128) ;
-  while (pend_ula_ticks>0) { delay(1); }
+  while (pend_ula_ticks>0) {
+#ifdef USE_DUAL_CORE
+   delay(1); 
+#else
+   pend_ula_ticks--;
+   ula_tick();
+#endif
+    }
     
   pend_ula_ticks+=192;
-//  ula_do_ticks();
   c=Z80Run (&spectrumZ80, 96) ;
-  while (pend_ula_ticks>0) { delay(1); }
+  while (pend_ula_ticks>0) {
+#ifdef USE_DUAL_CORE
+   delay(1); 
+#else
+   pend_ula_ticks--;
+   ula_tick();
+#endif
+    }
 
 //  AS_printf("PC=%i\n",c);
   // Sound on each scanline means 15.6Khz, not bad...
   //dac_output_voltage(DAC_CHANNEL_1, SoundTable[hwopt.SoundBits]);
 }
 
+#ifdef USE_DUAL_CORE    
 void ula_do_ticks(void * pvParameters ){
   for(;;){ 
     if (pend_ula_ticks>0) {
@@ -165,27 +196,27 @@ void ula_do_ticks(void * pvParameters ){
   TIMERG0.wdt_wprotect=0;
   }
 }
+#endif  
+
 
 void ula_tick(void){
-/*  const int specpal[48]={
-    0,0,205,205, 0,0,205,212,     0,0,255,255, 0,0,255,255,
-    0,0,0,0,     205,205,205,212, 0,0,0,0,     255,255,255,255,
-    0,205,0,205, 0,205,0,212,     0,255,0,255, 0,255,0,255 };
-*/
-  const int specpal565[16]={ //C618    D69A
+
+  const int specpal565[16]={
     0x0000, 0x001B, 0xB800, 0xB817,0x05E0,0x05F7,0xBDE0,0xC618, 0x0000, 0x001F,0xF800,0xF81F,0x07E0,0x07FF,0xFFE0,0xFFFF}; 
 
-  int color;
-  byte pixel;
+  uint8_t color;
+  uint8_t pixel;
   int col,fil,scan,inkOpap;
   static int px=31; // emulator hardware pixel to be paint, x coordinate
   static int py=24; // emulator hardware pixel to be paint, y coordinate
   static int ch=447; // 0-447 is the horizontal bean position
   static int cv=312; // 0-312 is the vertical bean position
   static int cf=0;  // 0-32 counter for flash
-  static int cf2=0;
-  static int cf3=0;
+//  static int cf2=0;
+//  static int cf3=0;
   static uint8_t attr; //last attrib memory read
+
+
 
  ch++;
  if (ch>=448) ch=0;
@@ -202,15 +233,15 @@ void ula_tick(void){
     py=0;
     cf++;  if (cf>=32) cf=0;
   //    leebotones();
-    cf2++; if (cf2>=50) cf2=0;
-    cf3++; if (cf3>=4) cf3=0;
+  //  cf2++; if (cf2>=50) cf2=0;
+  //  cf3++; if (cf3>=2) cf3=0;
   }
   if ((cv<218) or (cv>288)) py++;
  }
  if ((ch==0) and (cv==248)) spectrumZ80.petint=1;
 
 
-// Read the first ATTR of each col in advance.
+// Read the first ATTR of each col in advance. FIXME
 /*
  if (cv=312 and ch==447) {
   attr=z80_peek(0x5800); 
@@ -253,9 +284,13 @@ void ula_tick(void){
   }
  }
  // Paint the real screen
- if ((px<320) and (py<240) ){ //and (cf3==0)) { 
-  tft.drawPixel(px,py,specpal565[color]);
+ if ((px<320) and (py<240)) { // and (cf3==0)) {
+  if (  *(lastpix+px+320*py) != color ){
+    tft.drawPixel(px,py,specpal565[color]);
+    *(lastpix+px+320*py)=color;
+  } 
  }
+/*
  // Frame indication
  if ((px==0) and (py==16)) {
   tft.fillRect(306,0,14,10,tft.color565(0,0,0));
@@ -264,4 +299,5 @@ void ula_tick(void){
   tft.setTextColor(ILI9341_WHITE);  
   tft.print(cf2);   
  }
+*/
 }

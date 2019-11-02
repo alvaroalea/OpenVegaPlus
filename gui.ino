@@ -133,5 +133,8 @@ void gui_Main_Menu(void){
       gui_Select_Machine();
       break;
 */
-  }    
+  }
+  tft.fillScreen(ILI9341_BLACK);
+  //tft.fillRect(0,0,320,240,tft.color565(0,0,0));
+  for(r=0;r<(320*240);r++){ *(lastpix+r)=0; }      
 } 

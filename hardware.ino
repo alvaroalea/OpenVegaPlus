@@ -62,8 +62,8 @@ void leebotones(void){
     AS_printf("\tM="); AS_print(mappingkey[emuopt.mappingindex][c]);
     AS_printf("\n");
     updatekey(mappingkey[emuopt.mappingindex][c], keys[c]);
-    paint_tecla (mappingkey[emuopt.mappingindex][c],keys[c]);
-    paint_button(c,keys[c]);
+//    paint_tecla (mappingkey[emuopt.mappingindex][c],keys[c]);
+//    paint_button(c,keys[c]);
   }
   oldkeys[c]=keys[c];  
   }
