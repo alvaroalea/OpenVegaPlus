@@ -12,23 +12,37 @@
  * Compile as ESP32 Wrover Module
  *======================================================================
  */
+#include <WiFi.h>
 #include "SPIFFS.h"
 //#include <FS.h>
 #include <driver/dac.h>
+
+//#define USE_ADA
+#define USE_ESPI
+
+#ifdef USE_ADA
 #include "SPI.h"
 #include "Adafruit_GFX.h"
 #include "Adafruit_ILI9341.h"
-
 #define _cs 32
 #define _dc 5
 #define _rst 33
 #define _mosi 23
 #define _sclk 18
 #define _miso 19
-
 // Use hardware SPI 
 Adafruit_ILI9341 tft = Adafruit_ILI9341(_cs, _dc, _rst);
 //Adafruit_ILI9341 tft = Adafruit_ILI9341(_cs, _dc, _mosi, _sclk, _rst, _miso);
+#endif
+
+#ifdef USE_ESPI
+#include <TFT_eSPI.h>
+TFT_eSPI tft = TFT_eSPI();
+#define ILI9341_DARKGREEN TFT_DARKGREEN
+#define ILI9341_DARKGREEN TFT_DARKGREEN
+#define ILI9341_DARKGREEN TFT_DARKGREEN
+
+#endif
 
 //#define USE_DUAL_CORE
 
@@ -58,24 +72,7 @@ uint8_t *lastpix;
 TaskHandle_t Ula_Task;
 #endif 
 
-void show_splash(void){
 
-  gui_draw_window(270,170, "Version 0.0 alpha");
-  tft.setCursor(0, 65);
-  tft.setTextColor(ILI9341_BLACK);  
-  tft.setTextSize(3);
-  tft.println("    OpenVEGA+");
-  tft.setTextColor(ILI9341_DARKGREEN);  
-  tft.setTextSize(2);
-  tft.println("\n     By Alvaro Alea F.");
-  tft.setTextSize(1);
-  tft.println("");
-  tft.setTextSize(2);
-  tft.println("          (C) 2019");
-  tft.setTextSize(1);
-  tft.setTextColor(ILI9341_BLUE);  
-  tft.println("\n\n\n       A Opensource Portable Spectrum Emulator");
-}
 
 void setup(void)
 {
@@ -93,6 +90,10 @@ void setup(void)
     AS_printf("An Error has occurred while mounting SPIFFS\n");
     return;
   }
+
+  // This is supous that provide por CPU to the program.
+  WiFi.mode(WIFI_OFF); 
+  btStop();
 
   tft.begin();
   // read diagnostics (optional but can help debug problems)
@@ -131,7 +132,7 @@ void setup(void)
                     0);          /* pin task to core 0 */
 #endif
   
-  //FIXME porque 69888??
+  //FIXME porque 69888?? ¿quiza un frame, para que pinte la pantalla una vez?
   Z80Reset (&spectrumZ80, 69888);
   Z80FlagTables ();
   AS_printf("Z80 Initialization completed\n");
@@ -147,13 +148,14 @@ void setup(void)
 
 long pend_ula_ticks=0;
 
-void loop (void){ 
+/*void loop (void){ 
   draw_scanline();
-}
+}*/
 
-const uint8_t SoundTable[4]={0,1,0,1};
+const uint8_t SoundTable[4]={0,2,0,2};
 
-void draw_scanline(){
+//void draw_scanline(){
+void loop (void){ 
   uint16_t c=0; 
 // dividimos el scanline en la parte central, y los bordes y retrazo, para la emulacion del puerto FF  
 
@@ -181,7 +183,9 @@ void draw_scanline(){
 
 //  AS_printf("PC=%i\n",c);
   // Sound on each scanline means 15.6Khz, not bad...
-  //dac_output_voltage(DAC_CHANNEL_1, SoundTable[hwopt.SoundBits]);
+  if (emuopt.sonido==1) {
+  dac_output_voltage(DAC_CHANNEL_1, SoundTable[hwopt.SoundBits]);
+  }
 }
 
 #ifdef USE_DUAL_CORE    
@@ -201,8 +205,14 @@ void ula_do_ticks(void * pvParameters ){
 
 void ula_tick(void){
 
+#ifdef USE_ADA
   const int specpal565[16]={
     0x0000, 0x001B, 0xB800, 0xB817,0x05E0,0x05F7,0xBDE0,0xC618, 0x0000, 0x001F,0xF800,0xF81F,0x07E0,0x07FF,0xFFE0,0xFFFF}; 
+#endif
+#ifdef USE_ESPI
+  const int specpal565[16]={
+    0x0000, 0xB800, 0x001B, 0xB817,0x05F7,0x05E0, 0xBDE0,0xC618, 0x0000, 0xF800,0x001F,0xF81F,0x07FF,0x07E0,0xFFE0,0xFFFF}; 
+#endif
 
   uint8_t color;
   uint8_t pixel;

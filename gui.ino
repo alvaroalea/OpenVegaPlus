@@ -34,6 +34,8 @@
   tft.setTextColor(ILI9341_WHITE);  
   tft.setTextSize(1);
   tft.println(title);
+
+#ifdef USE_ADA
   tft.drawLine(n,y,(n--)-8,m,tft.color565(0,0,255));
   tft.drawLine(n,y,(n--)-8,m,tft.color565(0,0,255));
   tft.drawLine(n,y,(n--)-8,m,tft.color565(0,0,255));
@@ -50,6 +52,24 @@
   tft.drawLine(n,y,(n--)-8,m,tft.color565(255,0,0));
   tft.drawLine(n,y,(n--)-8,m,tft.color565(255,0,0));
   tft.drawLine(n,y,(n--)-8,m,tft.color565(255,0,0));
+#else
+  tft.drawLine(n,y,(n--)-8,m,tft.color565(255,0,0));
+  tft.drawLine(n,y,(n--)-8,m,tft.color565(255,0,0));
+  tft.drawLine(n,y,(n--)-8,m,tft.color565(255,0,0));
+  tft.drawLine(n,y,(n--)-8,m,tft.color565(255,0,0));
+  tft.drawLine(n,y,(n--)-8,m,tft.color565(0,255,0));
+  tft.drawLine(n,y,(n--)-8,m,tft.color565(0,255,0));
+  tft.drawLine(n,y,(n--)-8,m,tft.color565(0,255,0));
+  tft.drawLine(n,y,(n--)-8,m,tft.color565(0,255,0)); 
+  tft.drawLine(n,y,(n--)-8,m,tft.color565(0,255,255));
+  tft.drawLine(n,y,(n--)-8,m,tft.color565(0,255,255));
+  tft.drawLine(n,y,(n--)-8,m,tft.color565(0,255,255));
+  tft.drawLine(n,y,(n--)-8,m,tft.color565(0,255,255));
+  tft.drawLine(n,y,(n--)-8,m,tft.color565(0,0,255));
+  tft.drawLine(n,y,(n--)-8,m,tft.color565(0,0,255));
+  tft.drawLine(n,y,(n--)-8,m,tft.color565(0,0,255));
+  tft.drawLine(n,y,(n--)-8,m,tft.color565(0,0,255));
+#endif
  
  }
 
@@ -61,7 +81,11 @@ void gui_update_menu(int w,int h,int n,int s, char data[][25]){
   tft.setTextColor(ILI9341_BLACK);  
   tft.setTextSize(1);
   for (c=1;c<=n;c++){
+#ifdef USE_ADA    
   tft.fillRect(x+1,y+9*c,w-2,9,(c==s?ILI9341_CYAN:ILI9341_WHITE));
+#else
+  tft.fillRect(x+1,y+9*c,w-2,9,(c==s?TFT_YELLOW:ILI9341_WHITE));
+#endif
   tft.setCursor(x+2, y+1+9*c);
   tft.println(data[c-1]);
   }
@@ -70,7 +94,7 @@ int gui_draw_menu(int w,  char *title, int n, char data[][25]){
   int ret=-1;
   int h,b;
   int s=1;
-  h=9+9*(n>6?6:n);
+  h=9+9*(n>7?7:n);
   gui_draw_window(w,h,title);
   gui_update_menu(w,h,n,s,data);
   do {
@@ -102,16 +126,17 @@ int gui_draw_menu(int w,  char *title, int n, char data[][25]){
 // SPECIFIC FUNCTIONS
 
 void gui_Main_Menu(void){
-  char options[6][25]={
+  char options[7][25]={
     "Cambiar Mapa de teclado",
     "Cargar Snapshot",
     "Cargar Cinta",
     "Reset",
     "Tipo de Maquina",
+    "Sonido ON/OFF",
     "Volver"
   };
   int r;
-  r=gui_draw_menu(200,"Opciones",6,options);
+  r=gui_draw_menu(200,"Opciones",7,options);
   switch (r){
     case 1:
       emuopt.mappingindex++ ;       
@@ -125,16 +150,48 @@ void gui_Main_Menu(void){
       Load_SNA(&spectrumZ80,"/manic.sna");
       //gui_Select_Snap();
       break;
+    case 6:
+       if (emuopt.sonido==1) {
+        emuopt.sonido=0;
+        dac_output_voltage(DAC_CHANNEL_1,0);
+
+       } else {
+        emuopt.sonido=1;
+       }
+       break;
 /*
     case 3:
       gui_Select_Tape();
       break;
-    case 5:
-      gui_Select_Machine();
-      break;
 */
+    case 5:
+//      gui_Select_Machine();
+      show_splash();
+      do {
+        sleep(10);
+      } while (mirabotones()==0);
+      break;
   }
   tft.fillScreen(ILI9341_BLACK);
   //tft.fillRect(0,0,320,240,tft.color565(0,0,0));
   for(r=0;r<(320*240);r++){ *(lastpix+r)=0; }      
 } 
+
+void show_splash(void){
+
+  gui_draw_window(270,170, "Version 0.0 alpha");
+  tft.setCursor(0, 65);
+  tft.setTextColor(ILI9341_BLACK);  
+  tft.setTextSize(3);
+  tft.println("    OpenVEGA+");
+  tft.setTextColor(ILI9341_DARKGREEN);  
+  tft.setTextSize(2);
+  tft.println("\n     By Alvaro Alea F.");
+  tft.setTextSize(1);
+  tft.println("");
+  tft.setTextSize(2);
+  tft.println("          (C) 2019");
+  tft.setTextSize(1);
+  tft.setTextColor(ILI9341_BLUE);  
+  tft.println("\n\n\n       A Opensource Portable Spectrum Emulator");
+}

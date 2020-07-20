@@ -27,6 +27,7 @@ typedef struct {
 //  char snapfile[256];
   char tapefile[256];
   uint8_t mappingindex=0;
+  bool sonido=0;
 } tipo_emuopt ;
 
 //extern uint8_t border;
