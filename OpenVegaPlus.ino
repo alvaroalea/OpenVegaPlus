@@ -16,12 +16,13 @@
 #include "SPIFFS.h"
 //#include <FS.h>
 #include <driver/dac.h>
+#include "SPI.h"
 
 //#define USE_ADA
 #define USE_ESPI
 
 #ifdef USE_ADA
-#include "SPI.h"
+
 #include "Adafruit_GFX.h"
 #include "Adafruit_ILI9341.h"
 #define _cs 32
@@ -36,11 +37,12 @@ Adafruit_ILI9341 tft = Adafruit_ILI9341(_cs, _dc, _rst);
 #endif
 
 #ifdef USE_ESPI
+//#define USE_DMA_TO_TFT
 #include <TFT_eSPI.h>
 TFT_eSPI tft = TFT_eSPI();
-#define ILI9341_DARKGREEN TFT_DARKGREEN
-#define ILI9341_DARKGREEN TFT_DARKGREEN
-#define ILI9341_DARKGREEN TFT_DARKGREEN
+
+//dma bitmap max 64K
+// 16bits * 320 px * 80 px, -> complete screen in 3 parts. in 6 if used doble_buffer (1 on DMA, 1 on drawing).
 
 #endif
 
@@ -96,6 +98,10 @@ void setup(void)
   btStop();
 
   tft.begin();
+#ifdef USE_DMA_TO_TFT
+  // DMA - should work with ESP32, STM32F2xx/F4xx/F7xx processors  >>>>>> DMA IS FOR SPI DISPLAYS ONLY <<<<<<
+  tft.initDMA(); // Initialise the DMA engine
+#endif
   // read diagnostics (optional but can help debug problems)
   uint8_t x = tft.readcommand8(ILI9341_RDMODE);
   AS_printf("Display Power Mode: 0x"); AS_print(x, HEX);AS_printf("\n");
@@ -111,7 +117,12 @@ void setup(void)
   tft.fillScreen(ILI9341_BLACK);
 
   show_splash();
-
+  AS_printf("\nAntes del buffer lastpix\n"); 
+  AS_printf("Total heap: ");  AS_print( ESP.getHeapSize());  AS_printf("\n");
+  AS_printf("Free heap: ");   AS_print( ESP.getFreeHeap());  AS_printf("\n");
+  AS_printf("Total PSRAM: "); AS_print( ESP.getPsramSize()); AS_printf("\n");
+  AS_printf("Free PSRAM: ");  AS_print( ESP.getFreePsram()); AS_printf("\n");
+  
   lastpix = (uint8_t*) malloc(320*240 * sizeof(uint8_t));
   if(lastpix == NULL)                     
     {
@@ -119,7 +130,11 @@ void setup(void)
         delay(10000);
     }
 
-
+  AS_printf("\nDespues\n"); 
+  AS_printf("Total heap: ");  AS_print( ESP.getHeapSize());  AS_printf("\n");
+  AS_printf("Free heap: ");   AS_print( ESP.getFreeHeap());  AS_printf("\n");
+  AS_printf("Total PSRAM: "); AS_print( ESP.getPsramSize()); AS_printf("\n");
+  AS_printf("Free PSRAM: ");  AS_print( ESP.getFreePsram()); AS_printf("\n");
 
 #ifdef USE_DUAL_CORE
   xTaskCreatePinnedToCore(
@@ -274,7 +289,7 @@ void ula_tick(void){
   //       later attr for col+1 on ch & B111 == 0b111
   //       deberia ir en un if separado para no leer 33 valores, el ultimo no hace falta asi que ch<250
   if (( ch & B111 ) == 0b000 ) {
-    attr=readvmem(0x1800 + 32*fil  +col,hwopt.videopage);
+    attr=        readvmem(0x1800 + 32*fil  +col,hwopt.videopage);
   }
   if (( ch & B111 ) == 0b000 ) {
     hwopt.portFF=readvmem(0x0000 + 32*scan +col,hwopt.videopage);
@@ -294,11 +309,17 @@ void ula_tick(void){
   }
  }
  // Paint the real screen
+ if ( (px==0) and (py==0) ) tft.startWrite();
+ 
  if ((px<320) and (py<240)) { // and (cf3==0)) {
   if (  *(lastpix+px+320*py) != color ){
     tft.drawPixel(px,py,specpal565[color]);
     *(lastpix+px+320*py)=color;
-  } 
+  }
+  
+if ((px==319) and (py==239)) tft.endWrite();
+ 
+ 
  }
 /*
  // Frame indication
