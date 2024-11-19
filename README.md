@@ -1,6 +1,8 @@
 # OpenVegaPlus
 ZX Spectrum Emulator for ESP32 with SPI TFT Screen
 
+## PLEASE, BE AWARE THAT ACTUALLY THIS PROJECT IS NOT USABLE, EMULATION IS PAINFULLY SLOW
+
 ## Hardware parts:
 Board TT-GO-T8 V1.7
 
